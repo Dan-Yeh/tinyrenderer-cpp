@@ -17,7 +17,8 @@ void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
 
     int x_increment = (x1 > x0) ? 1 : -1;
 
-    for (int x=x0; x != x1; x+=x_increment) {
+    int x1_stop = x1 + x_increment;
+    for (int x=x0; x != x1_stop ;x+=x_increment) {
         int y = y0 + (x - x0) * slope;
         if (steep) {
             image.set(y, x, color);
