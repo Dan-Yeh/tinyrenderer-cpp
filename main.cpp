@@ -1,8 +1,6 @@
 #include <vector>
 #include <cmath>
 #include "tgaimage.h"
-#include "line.h"
-#include "triangle.h"
 #include "model.h"
 #include "geometry.h"
 
@@ -11,6 +9,65 @@ const TGAColor red   = TGAColor(255, 0,   0,   255);
 const TGAColor green = TGAColor(0,   255, 0,   255);
 const int width  = 200;
 const int height = 200;
+
+void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
+    bool steep = false;
+    int dx = x1 - x0;
+    int dy = y1 - y0;
+
+    // draw a denser line when line is steep (dx < dy)
+    if (std::abs(dx) < std::abs(dy)) {
+        steep = true;
+        std::swap(x0, y0);
+        std::swap(x1, y1);
+        std::swap(dx, dy);
+    }
+
+    float slope = dy / (float) dx;
+
+    int x_increment = (x1 > x0) ? 1 : -1;
+
+    int x1_stop = x1 + x_increment;
+    for (int x=x0; x != x1_stop ;x+=x_increment) {
+        int y = y0 + (x - x0) * slope;
+        if (steep) {
+            image.set(y, x, color);
+        } else {
+            image.set(x, y, color);
+        }
+    }
+}
+
+void triangle(Vec2i t0, Vec2i t1,  Vec2i t2, TGAImage &image, TGAColor color) {
+    // 1. get leftmost vertex
+    // 2. get middle vertex
+    // 3. get the point function we wanna draw
+    // 4. draw
+
+    if (t1.x < t0.x) {
+        std::swap(t0, t1);
+    }
+
+    if (t2.x < t0.x) {
+        std::swap(t0, t2);
+    }
+
+    if (t2.x < t1.x) {
+        std::swap(t1, t2);
+    }
+
+    // Currently, t1.x <= t2.x <= t3.x
+    
+    // get t1 -> t3 line, l2
+    // get t1 -> t2 line, l1
+    // get t2 -> t3 line, l3
+
+    // draw lines between l1, l2
+
+    // then when x reach t2.x
+
+    // draw lines between l2, l3
+}
 
 int main(int argc, char** argv) {
     TGAImage image(width, height, TGAImage::RGB);
