@@ -9,6 +9,7 @@ const TGAColor red   = TGAColor(255, 0,   0,   255);
 const TGAColor green = TGAColor(0,   255, 0,   255);
 const int width  = 200;
 const int height = 200;
+Model *model = NULL;
 
 void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
     bool steep = false;
@@ -45,7 +46,7 @@ steps:
 2. get three slopes
 3. draw lines
 */
-void triangle(Vec2i t0, Vec2i t1,  Vec2i t2, TGAImage &image, TGAColor color) {
+void triangle_sweeping(Vec2i t0, Vec2i t1,  Vec2i t2, TGAImage &image, TGAColor color) {
     if (t1.x < t0.x) {
         std::swap(t0, t1);
     }
@@ -80,17 +81,72 @@ void triangle(Vec2i t0, Vec2i t1,  Vec2i t2, TGAImage &image, TGAColor color) {
 
 }
 
+/*
+Barycentric triangle drawing
+*/
+
+Vec3f getBaryVector(int x, int y, std::vector<Vec2i>& points) {
+    Vec3f u = Vec3f(points[2].x-points[0].x, points[1].x-points[0].x, points[0].x-x)^Vec3f(points[2].y-points[0].y, points[1].y-points[0].y, points[0].y-y);
+    /* `points` and `P` has integer value as coordinates
+       so `abs(u[2])` < 1 means `u[2]` is 0, that means
+       triangle is degenerate, in this case return something with negative coordinates */
+    if (std::abs(u.z)<1) 
+        return Vec3f(-1,1,1);
+    return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z);
+}
+
+void triangle(std::vector<Vec2i> &points, TGAImage &image, TGAColor color) {
+    int clampX = image.get_width() - 1;
+    int clampY = image.get_height() - 1;
+    Vec2i boundingboxMin(clampX, clampY);
+    Vec2i boundingboxMax(0, 0);
+
+    for (const auto& p: points) {
+        boundingboxMin.x = std::max(0, std::min(boundingboxMin.x, p.x));
+        boundingboxMin.y = std::max(0, std::min(boundingboxMin.y, p.y));
+
+        boundingboxMax.x = std::min(clampX, std::max(boundingboxMax.x, p.x));
+        boundingboxMax.y = std::min(clampY, std::max(boundingboxMax.y, p.y));
+    }
+
+    // go through bounding box
+    for (int x=boundingboxMin.x; x <= boundingboxMax.x; x++) {
+        for (int y=boundingboxMin.y; y <= boundingboxMax.y; y++) {
+            Vec3f v = getBaryVector(x, y, points);
+            if (v.x < 0 || v.y < 0 || v.z < 0)
+                continue;
+            image.set(x, y, color);
+        }
+    }
+}
+
 int main(int argc, char** argv) {
+    if (2==argc) {
+        model = new Model(argv[1]);
+    } else {
+        model = new Model("obj/african_head.obj");
+    }
+
     TGAImage image(width, height, TGAImage::RGB);
 
-    Vec2i t0[3] = {Vec2i(10, 70),   Vec2i(50, 160),  Vec2i(70, 80)};
-    Vec2i t1[3] = {Vec2i(180, 50),  Vec2i(150, 1),   Vec2i(70, 180)};
-    Vec2i t2[3] = {Vec2i(180, 150), Vec2i(120, 160), Vec2i(130, 180)};
+    Vec3f light_dir(0,0,-1);
+    for (int i=0; i<model->nfaces(); i++) { 
+        std::vector<int> face = model->face(i); 
+        std::vector<Vec2i> screen_coords; 
+        std::vector<Vec3f> world_coords; 
+        for (int j=0; j<3; j++) { 
+            Vec3f v = model->vert(face[j]); 
+            screen_coords.push_back(Vec2i((v.x+1.)*width/2., (v.y+1.)*height/2.)); 
+            world_coords.push_back(v);
+        } 
 
-    triangle(t0[0], t0[1], t0[2], image, red);
-    triangle(t1[0], t1[1], t1[2], image, white);
-    triangle(t2[0], t2[1], t2[2], image, green);
-
+        Vec3f n = (world_coords[2]-world_coords[0])^(world_coords[1]-world_coords[0]); 
+        n.normalize(); 
+        float intensity = n*light_dir; 
+        if (intensity>0) {
+            triangle(screen_coords, image, TGAColor(intensity*255, intensity*255, intensity*255, 255)); 
+        }
+    }
 
     image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
     image.write_tga_file("output.tga");
