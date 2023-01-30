@@ -38,12 +38,14 @@ void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
     }
 }
 
+/*
+Draw a triangle using line sweeping approach
+steps:
+1. sort t0, t1 and t2 based on x
+2. get three slopes
+3. draw lines
+*/
 void triangle(Vec2i t0, Vec2i t1,  Vec2i t2, TGAImage &image, TGAColor color) {
-    // 1. get leftmost vertex
-    // 2. get middle vertex
-    // 3. get the point function we wanna draw
-    // 4. draw
-
     if (t1.x < t0.x) {
         std::swap(t0, t1);
     }
@@ -55,18 +57,27 @@ void triangle(Vec2i t0, Vec2i t1,  Vec2i t2, TGAImage &image, TGAColor color) {
     if (t2.x < t1.x) {
         std::swap(t1, t2);
     }
-
-    // Currently, t1.x <= t2.x <= t3.x
+    // Currently, t0.x <= t1.x <= t2.x
     
-    // get t1 -> t3 line, l2
-    // get t1 -> t2 line, l1
-    // get t2 -> t3 line, l3
+    // get slopes
+    float slope1 = (t1.y - t0.y) / (float) (t1.x - t0.x);
+    float slope2 = (t2.y - t0.y) / (float) (t2.x - t0.x);
+    float slope3 = (t2.y - t1.y) / (float) (t2.x - t1.x);
 
     // draw lines between l1, l2
-
-    // then when x reach t2.x
+    for (int x=t0.x; x<=t1.x; x++) {
+        int y1 = t0.y + (x - t0.x) * slope1;
+        int y2 = t0.y + (x - t0.x) * slope2;
+        line(x, y1, x, y2, image, color);
+    }
 
     // draw lines between l2, l3
+    for (int x=t1.x; x<=t2.x; x++) {
+        int y2 = t0.y + (x - t0.x) * slope2;
+        int y3 = t1.y + (x - t1.x) * slope3;
+        line(x, y2, x, y3, image, color);
+    }
+
 }
 
 int main(int argc, char** argv) {
