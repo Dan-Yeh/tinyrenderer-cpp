@@ -85,7 +85,7 @@ void triangle_sweeping(Vec2i t0, Vec2i t1,  Vec2i t2, TGAImage &image, TGAColor 
 Barycentric triangle drawing
 */
 
-Vec3f getBaryVector(int x, int y, std::vector<Vec2i>& points) {
+Vec3f getBaryVector(int x, int y, std::vector<Vec3f>& points) {
     Vec3f u = Vec3f(points[2].x-points[0].x, points[1].x-points[0].x, points[0].x-x)^Vec3f(points[2].y-points[0].y, points[1].y-points[0].y, points[0].y-y);
     /* `points` and `P` has integer value as coordinates
        so `abs(u[2])` < 1 means `u[2]` is 0, that means
@@ -95,15 +95,15 @@ Vec3f getBaryVector(int x, int y, std::vector<Vec2i>& points) {
     return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z);
 }
 
-void triangle(std::vector<Vec2i> &points, TGAImage &image, TGAColor color) {
-    int clampX = image.get_width() - 1;
-    int clampY = image.get_height() - 1;
-    Vec2i boundingboxMin(clampX, clampY);
-    Vec2i boundingboxMax(0, 0);
+void triangle(std::vector<Vec3f> &points, std::vector<float> &z_buffer, TGAImage &image, TGAColor color) {
+    float clampX = image.get_width() - 1;
+    float clampY = image.get_height() - 1;
+    Vec2f boundingboxMin(clampX, clampY);
+    Vec2f boundingboxMax(0, 0);
 
     for (const auto& p: points) {
-        boundingboxMin.x = std::max(0, std::min(boundingboxMin.x, p.x));
-        boundingboxMin.y = std::max(0, std::min(boundingboxMin.y, p.y));
+        boundingboxMin.x = std::max(0.f, std::min(boundingboxMin.x, p.x));
+        boundingboxMin.y = std::max(0.f, std::min(boundingboxMin.y, p.y));
 
         boundingboxMax.x = std::min(clampX, std::max(boundingboxMax.x, p.x));
         boundingboxMax.y = std::min(clampY, std::max(boundingboxMax.y, p.y));
@@ -115,7 +115,13 @@ void triangle(std::vector<Vec2i> &points, TGAImage &image, TGAColor color) {
             Vec3f v = getBaryVector(x, y, points);
             if (v.x < 0 || v.y < 0 || v.z < 0)
                 continue;
-            image.set(x, y, color);
+            float z = 0;
+            for (int i=0; i <3; i++)
+                z += points[i].raw[2] * v.raw[i];
+            if (z_buffer[int(x + width*y)] < z) {
+                z_buffer[int(x + width*y)] = z;
+                image.set(x, y, color);
+            }
         }
     }
 }
@@ -127,16 +133,18 @@ int main(int argc, char** argv) {
         model = new Model("obj/african_head.obj");
     }
 
+    std::vector<float> z_buffer(width*height, std::numeric_limits<float>::min());
+
     TGAImage image(width, height, TGAImage::RGB);
 
     Vec3f light_dir(0,0,-1);
     for (int i=0; i<model->nfaces(); i++) { 
         std::vector<int> face = model->face(i); 
-        std::vector<Vec2i> screen_coords; 
+        std::vector<Vec3f> screen_coords; 
         std::vector<Vec3f> world_coords; 
         for (int j=0; j<3; j++) { 
             Vec3f v = model->vert(face[j]); 
-            screen_coords.push_back(Vec2i((v.x+1.)*width/2., (v.y+1.)*height/2.)); 
+            screen_coords.push_back(Vec3f((v.x+1.)*width/2., (v.y+1.)*height/2., v.z)); 
             world_coords.push_back(v);
         } 
 
@@ -144,7 +152,7 @@ int main(int argc, char** argv) {
         n.normalize(); 
         float intensity = n*light_dir; 
         if (intensity>0) {
-            triangle(screen_coords, image, TGAColor(intensity*255, intensity*255, intensity*255, 255)); 
+            triangle(screen_coords, z_buffer, image, TGAColor(intensity*255, intensity*255, intensity*255, 255)); 
         }
     }
 

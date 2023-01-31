@@ -21,16 +21,18 @@ Model::Model(const char *filename) : verts_(), faces_() {
             verts_.push_back(v);
         } else if (!line.compare(0, 2, "f ")) {
             std::vector<int> f;
-            int itrash, idx;
+            int itrash, vrt, texture, norm;
             iss >> trash;
-            while (iss >> idx >> trash >> itrash >> trash >> itrash) {
-                idx--; // in wavefront obj all indices start at 1, not zero
-                f.push_back(idx);
+            while (iss >> vrt >> trash >> texture >> trash >> norm) {
+                f.push_back(--vrt);
+                f.push_back(--texture);
+                f.push_back(--norm);
             }
             faces_.push_back(f);
         }
     }
     std::cerr << "# v# " << verts_.size() << " f# "  << faces_.size() << std::endl;
+    load_texture(filename, "_diffuse.tga");
 }
 
 Model::~Model() {
@@ -52,3 +54,9 @@ Vec3f Model::vert(int i) {
     return verts_[i];
 }
 
+void Model::load_texture(std::string filename, const std::string suffix, TGAImage &img) {
+    size_t dot_index = filename.find_last_of(".");
+    if (dot_index==std::string::npos) return;
+    std::string texfile = filename.substr(0,dot_index) + suffix;
+    std::cerr << "texture file " << texfile << " loading " << (img.read_tga_file(texfile.c_str()) ? "ok" : "failed") << std::endl;
+}
